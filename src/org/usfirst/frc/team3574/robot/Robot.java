@@ -1,10 +1,18 @@
 package org.usfirst.frc.team3574.robot;
 
+import edu.wpi.first.wpilibj.CANJaguar;
+import edu.wpi.first.wpilibj.CANTalon;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.SerialPort;
+import edu.wpi.first.wpilibj.Talon;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.RobotDrive.MotorType;
+import edu.wpi.first.wpilibj.can.CANNotInitializedException;
+import edu.wpi.first.wpilibj.communication.UsageReporting;
+import edu.wpi.first.wpilibj.communication.FRCNetworkCommunicationsLibrary.tInstances;
+import edu.wpi.first.wpilibj.communication.FRCNetworkCommunicationsLibrary.tResourceType;
 import edu.wpi.first.wpilibj.livewindow.LiveWindow;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
@@ -22,6 +30,14 @@ public class Robot extends IterativeRobot {
 	RobotDrive myRobot;
 	Joystick stick;
 	int autoLoopCounter;
+	CANTalon backLeftMotor;
+	CANTalon backRightMotor;
+	CANTalon frontLeftMotor;
+	CANTalon frontRightMotor;
+	CANTalon motor5;
+	CANTalon motor6;
+	CANTalon motor7;
+	double scaledX, scaledY, scaledZ, rookieFactor;
 	
     SerialPort serial_port;
     //IMU imu;  // Alternatively, use IMUAdvanced for advanced features
@@ -33,8 +49,15 @@ public class Robot extends IterativeRobot {
      * used for any initialization code.
      */
     public void robotInit() {
-    	myRobot = new RobotDrive(0,1);
+    	myRobot = new RobotDrive(4,1,3,2);
     	stick = new Joystick(0);
+    	backLeftMotor = new CANTalon(2);
+    	backRightMotor = new CANTalon(4);
+    	frontLeftMotor  = new CANTalon(1);
+    	frontRightMotor  = new CANTalon(3);
+    	motor5  = new CANTalon(5);
+    	motor6  = new CANTalon(6);
+    	motor7 = new CANTalon(7);
 
     	try {
     	serial_port = new SerialPort(57600,SerialPort.Port.kUSB);
@@ -84,12 +107,39 @@ public class Robot extends IterativeRobot {
      */
     public void teleopInit(){
     }
-
+	public double joystickScale(double input) {
+		boolean isNegative = false;
+		if(input < 0.0) {
+			isNegative = true;
+		}
+		input = Math.abs(input);
+		double result = (Math.pow(Math.E,input) - 1)/1.718;
+		if(isNegative) {
+			result *= -1.0;
+		}
+		return result;
+	}
     /**
      * This function is called periodically during operator control
      */
     public void teleopPeriodic() {
-        myRobot.arcadeDrive(stick);
+    	rookieFactor = 1.0;
+    	scaledX = joystickScale( stick.getRawAxis(0)) * rookieFactor;
+    	scaledY = joystickScale( stick.getRawAxis(1)) * rookieFactor * -1.0;
+		scaledZ = joystickScale( stick.getRawAxis(4)) * rookieFactor;
+    	mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, imu.getYaw());
+        //myRobot.arcadeDrive(stick);
+//        mecanumDrive_Cartesian(stick.getRawAxis(0), stick.getRawAxis(1), stick.getRawAxis(4), 0.0);
+        
+//       motor1.set(stick.getRawAxis(0));
+//       motor2.set(stick.getRawAxis(1));
+//       
+//       if (stick.getRawButton(4) == true){
+//    	   motor7.set(0.3);
+//       } else{
+//    	   motor7.set(0.0);
+//       }
+        
 
         // When calibration has completed, zero the yaw
         // Calibration is complete approaximately 20 seconds
@@ -126,6 +176,11 @@ public class Robot extends IterativeRobot {
         SmartDashboard.putBoolean(  "IMU_IsMoving",         imu.isMoving());
         SmartDashboard.putNumber(   "IMU_Temp_C",           imu.getTempC());
         
+//        SmartDashboard.putNumber(	"Motor 1",				motor1.getEncPosition());
+//        SmartDashboard.putNumber(	"Motor 4 Encoder count",				motor4.getEncPosition());
+        SmartDashboard.putBoolean("motor5 limitswitch forward", motor5.isFwdLimitSwitchClosed());
+        SmartDashboard.putBoolean("motor5 limitswitch back", motor5.isRevLimitSwitchClosed());
+        
         Timer.delay(0.2);
 }
     
@@ -136,4 +191,53 @@ public class Robot extends IterativeRobot {
     	LiveWindow.run();
     }
     
+    protected static double[] rotateVector(double x, double y, double angle) {
+        double cosA = Math.cos(angle * (3.14159 / 180.0));
+        double sinA = Math.sin(angle * (3.14159 / 180.0));
+        double out[] = new double[2];
+        out[0] = x * cosA - y * sinA;
+        out[1] = x * sinA + y * cosA;
+        return out;
+    }
+    
+    protected static void normalize(double wheelSpeeds[]) {
+        double maxMagnitude = Math.abs(wheelSpeeds[0]);
+        int i;
+        for (i=1; i<4; i++) {
+            double temp = Math.abs(wheelSpeeds[i]);
+            if (maxMagnitude < temp) maxMagnitude = temp;
+        }
+        if (maxMagnitude > 1.0) {
+            for (i=0; i<4; i++) {
+                wheelSpeeds[i] = wheelSpeeds[i] / maxMagnitude;
+            }
+        }
+    }
+    
+    public void mecanumDrive_Cartesian(double x, double y, double rotation, double gyroAngle) {
+        
+        double xIn = x;
+        double yIn = y;
+        // Negate y for the joystick.
+        yIn = -yIn;
+        // Compenstate for gyro angle.
+        double rotated[] = rotateVector(xIn, yIn, gyroAngle);
+        xIn = rotated[0];
+        yIn = rotated[1];
+
+        double wheelSpeeds[] = new double[4];
+        wheelSpeeds[0] = xIn + yIn + rotation;
+        wheelSpeeds[1] = -xIn + yIn - rotation;
+        wheelSpeeds[2] = -xIn + yIn + rotation;
+        wheelSpeeds[3] = xIn + yIn - rotation;
+
+        normalize(wheelSpeeds);
+
+        frontLeftMotor.set(wheelSpeeds[0] *- 0.75);
+        frontRightMotor.set(wheelSpeeds[1] * 0.75);
+        backLeftMotor.set(wheelSpeeds[2] * -0.75);
+        backRightMotor.set(wheelSpeeds[3] * 0.75);
+
+           }
+
 }
