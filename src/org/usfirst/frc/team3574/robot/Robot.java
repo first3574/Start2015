@@ -38,6 +38,8 @@ public class Robot extends IterativeRobot {
 	CANTalon motor6;
 	CANTalon motor7;
 	double scaledX, scaledY, scaledZ, rookieFactor;
+//	make the imu be 0 to 360
+	double forceToBetotwoPi = 0.0;
 	
     SerialPort serial_port;
     //IMU imu;  // Alternatively, use IMUAdvanced for advanced features
@@ -106,6 +108,7 @@ public class Robot extends IterativeRobot {
      * This function is called once each time the robot enters tele-operated mode
      */
     public void teleopInit(){
+    	imu.zeroYaw();
     }
 	public double joystickScale(double input) {
 		boolean isNegative = false;
@@ -127,7 +130,19 @@ public class Robot extends IterativeRobot {
     	scaledX = joystickScale( stick.getRawAxis(0)) * rookieFactor;
     	scaledY = joystickScale( stick.getRawAxis(1)) * rookieFactor * -1.0;
 		scaledZ = joystickScale( stick.getRawAxis(4)) * rookieFactor;
-    	mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, imu.getYaw());
+		
+		if(imu.getYaw() < 0.0) {
+			forceToBetotwoPi = 360 + imu.getYaw();
+		} else {
+			forceToBetotwoPi = imu.getYaw();
+		}
+		
+    	if(stick.getRawAxis(0) > .1 || stick.getRawAxis(1) > .1 ||  stick.getRawAxis(4) > .1 || stick.getRawAxis(0) < -.1 || stick.getRawAxis(1) < -.1 ||  stick.getRawAxis(4) < -.1) {
+    		mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, forceToBetotwoPi);
+    	} else {
+    		mecanumDrive_Cartesian(0, 0, 0, forceToBetotwoPi);
+    	}
+	
         //myRobot.arcadeDrive(stick);
 //        mecanumDrive_Cartesian(stick.getRawAxis(0), stick.getRawAxis(1), stick.getRawAxis(4), 0.0);
         
@@ -166,6 +181,8 @@ public class Robot extends IterativeRobot {
         SmartDashboard.putNumber(   "IMU_CompassHeading",   imu.getCompassHeading());
         SmartDashboard.putNumber(   "IMU_Update_Count",     imu.getUpdateCount());
         SmartDashboard.putNumber(   "IMU_Byte_Count",       imu.getByteCount());
+        SmartDashboard.putNumber(	"IMU_PIDGET", 			imu.pidGet());
+        //        imu.pidGet()
 
         // If you are using the IMUAdvanced class, you can also access the following
         // additional functions, at the expense of some extra processing
@@ -175,6 +192,7 @@ public class Robot extends IterativeRobot {
         SmartDashboard.putNumber(   "IMU_Accel_Y",          imu.getWorldLinearAccelY());
         SmartDashboard.putBoolean(  "IMU_IsMoving",         imu.isMoving());
         SmartDashboard.putNumber(   "IMU_Temp_C",           imu.getTempC());
+        SmartDashboard.putNumber(	"forceToBetotwoPi", 	forceToBetotwoPi);
         
 //        SmartDashboard.putNumber(	"Motor 1",				motor1.getEncPosition());
 //        SmartDashboard.putNumber(	"Motor 4 Encoder count",				motor4.getEncPosition());
