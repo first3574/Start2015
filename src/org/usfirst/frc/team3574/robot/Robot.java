@@ -2,6 +2,7 @@ package org.usfirst.frc.team3574.robot;
 
 import edu.wpi.first.wpilibj.CANJaguar;
 import edu.wpi.first.wpilibj.CANTalon;
+import edu.wpi.first.wpilibj.CANTalon.ControlMode;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
@@ -37,8 +38,9 @@ public class Robot extends IterativeRobot {
 	CANTalon motor5;
 	CANTalon motor6;
 	CANTalon motor7;
+	
 	double scaledX, scaledY, scaledZ, rookieFactor;
-//	make the imu be 0 to 360
+	//	make the imu be 0 to 360
 	double forceToBetotwoPi = 0.0;
 	
     SerialPort serial_port;
@@ -60,6 +62,11 @@ public class Robot extends IterativeRobot {
     	motor5  = new CANTalon(5);
     	motor6  = new CANTalon(6);
     	motor7 = new CANTalon(7);
+    	
+//    	backLeftMotor.changeControlMode(ControlMode.Current);
+//    	backRightMotor.changeControlMode(ControlMode.Current);
+//    	frontRightMotor.changeControlMode(ControlMode.Current);
+//    	frontLeftMotor.changeControlMode(ControlMode.Current);
 
     	try {
     	serial_port = new SerialPort(57600,SerialPort.Port.kUSB);
@@ -127,7 +134,8 @@ public class Robot extends IterativeRobot {
      */
     public void teleopPeriodic() {
     	rookieFactor = 1.0;
-    	scaledX = joystickScale( stick.getRawAxis(0)) * rookieFactor;
+    	//To make it field oriented the x needs to be inverted
+    	scaledX = joystickScale( -stick.getRawAxis(0)) * rookieFactor;
     	scaledY = joystickScale( stick.getRawAxis(1)) * rookieFactor * -1.0;
 		scaledZ = joystickScale( stick.getRawAxis(4)) * rookieFactor;
 		
@@ -137,7 +145,9 @@ public class Robot extends IterativeRobot {
 			forceToBetotwoPi = imu.getYaw();
 		}
 		
-    	if(stick.getRawAxis(0) > .1 || stick.getRawAxis(1) > .1 ||  stick.getRawAxis(4) > .1 || stick.getRawAxis(0) < -.1 || stick.getRawAxis(1) < -.1 ||  stick.getRawAxis(4) < -.1) {
+    	if(stick.getRawAxis(0) > .1 || stick.getRawAxis(1) > .1 || 
+    	   stick.getRawAxis(4) > .1 || stick.getRawAxis(0) < -.1 ||
+    	   stick.getRawAxis(1) < -.1 ||  stick.getRawAxis(4) < -.1) {
     		mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, forceToBetotwoPi);
     	} else {
     		mecanumDrive_Cartesian(0, 0, 0, forceToBetotwoPi);
@@ -157,7 +167,7 @@ public class Robot extends IterativeRobot {
         
 
         // When calibration has completed, zero the yaw
-        // Calibration is complete approaximately 20 seconds
+        // Calibration is complete approximately 20 seconds
         // after the robot is powered on.  During calibration,
         // the robot should be still
         
@@ -251,10 +261,10 @@ public class Robot extends IterativeRobot {
 
         normalize(wheelSpeeds);
 
-        frontLeftMotor.set(wheelSpeeds[0] *- 0.75);
-        frontRightMotor.set(wheelSpeeds[1] * 0.75);
-        backLeftMotor.set(wheelSpeeds[2] * -0.75);
-        backRightMotor.set(wheelSpeeds[3] * 0.75);
+        frontLeftMotor.set(wheelSpeeds[0] * -1.0);
+        frontRightMotor.set(wheelSpeeds[1] * 1.0);
+        backLeftMotor.set(wheelSpeeds[2] * -1.0);
+        backRightMotor.set(wheelSpeeds[3] * 1.0);
 
            }
 
