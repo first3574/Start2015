@@ -30,6 +30,7 @@ import com.kauailabs.nav6.frc.IMUAdvanced;
 public class Robot extends IterativeRobot {
 	RobotDrive myRobot;
 	Joystick stick;
+	double deadZone;
 	int autoLoopCounter;
 	CANTalon backLeftMotor;
 	CANTalon backRightMotor;
@@ -61,12 +62,7 @@ public class Robot extends IterativeRobot {
     	frontRightMotor  = new CANTalon(3);
     	motor5  = new CANTalon(5);
     	motor6  = new CANTalon(6);
-    	motor7 = new CANTalon(7);
-    	
-//    	backLeftMotor.changeControlMode(ControlMode.Current);
-//    	backRightMotor.changeControlMode(ControlMode.Current);
-//    	frontRightMotor.changeControlMode(ControlMode.Current);
-//    	frontLeftMotor.changeControlMode(ControlMode.Current);
+    	motor7 = new CANTalon(7);    
 
     	try {
     	serial_port = new SerialPort(57600,SerialPort.Port.kUSB);
@@ -96,19 +92,52 @@ public class Robot extends IterativeRobot {
      */
     public void autonomousInit() {
     	autoLoopCounter = 0;
+    	frontLeftMotor.setPosition(0);
+    	frontRightMotor.setPosition(0);
+    	backLeftMotor.setPosition(0);
+    	backRightMotor.setPosition(0);
     }
 
+     double tryToGoStartRight = .5;
+     double tryToGoStartLeft = .5;
     /**
      * This function is called periodically during autonomous
      */
     public void autonomousPeriodic() {
+    	
     	if(autoLoopCounter < 100) //Check if we've completed 100 loops (approximately 2 seconds)
 		{
-			myRobot.drive(-0.5, 0.0); 	// drive forwards half speed
-			autoLoopCounter++;
+    		SmartDashboard.putNumber("Left Front enc", frontLeftMotor.getEncPosition());
+    		SmartDashboard.putNumber("Right Front enc", frontRightMotor.getEncPosition());
+    		SmartDashboard.putNumber("Right Back enc", backRightMotor.getEncPosition());
+    		SmartDashboard.putNumber("Left Back enc", backLeftMotor.getEncPosition());
+    		
+    		if(frontLeftMotor.getEncPosition() + 10 > frontRightMotor.getEncPosition()) {
+    			tryToGoStartRight -= .1;
+    		} else if(frontLeftMotor.getEncPosition() - 10 < frontRightMotor.getEncPosition()) {
+    			tryToGoStartLeft -= .1;
+			}
+    		
+    		if(backLeftMotor.getEncPosition() + 10 > backRightMotor.getEncPosition()) {
+    			tryToGoStartRight -= .1;
+    		} else if(backLeftMotor.getEncPosition() - 10 < backRightMotor.getEncPosition()) {
+    			tryToGoStartLeft -= .1;
+			}
+    		
+    		backLeftMotor.set(-tryToGoStartLeft); 	// drive forwards half speed
+    		backRightMotor.set(tryToGoStartRight);
+    		frontLeftMotor.set(-tryToGoStartLeft);
+    		frontRightMotor.set(tryToGoStartRight);
+    		autoLoopCounter ++;
+    		
 			} else {
-			myRobot.drive(0.0, 0.0); 	// stop robot
+				backLeftMotor.set(-0); 	// drive forwards half speed
+				backRightMotor.set(0);
+				frontLeftMotor.set(-0);
+				frontRightMotor.set(0);
 		}
+
+		
     }
     
     /**
@@ -133,7 +162,8 @@ public class Robot extends IterativeRobot {
      * This function is called periodically during operator control
      */
     public void teleopPeriodic() {
-    	rookieFactor = 1.0;
+    	rookieFactor = .75;
+    	deadZone = 0.24;
     	//To make it field oriented the x needs to be inverted
     	scaledX = joystickScale( -stick.getRawAxis(0)) * rookieFactor;
     	scaledY = joystickScale( stick.getRawAxis(1)) * rookieFactor * -1.0;
@@ -145,9 +175,9 @@ public class Robot extends IterativeRobot {
 			forceToBetotwoPi = imu.getYaw();
 		}
 		
-    	if(stick.getRawAxis(0) > .1 || stick.getRawAxis(1) > .1 || 
-    	   stick.getRawAxis(4) > .1 || stick.getRawAxis(0) < -.1 ||
-    	   stick.getRawAxis(1) < -.1 ||  stick.getRawAxis(4) < -.1) {
+    	if(stick.getRawAxis(0) > deadZone || stick.getRawAxis(1) > deadZone || 
+    	   stick.getRawAxis(4) > deadZone || stick.getRawAxis(0) < -deadZone ||
+    	   stick.getRawAxis(1) < -deadZone ||  stick.getRawAxis(4) < -deadZone) {
     		mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, forceToBetotwoPi);
     	} else {
     		mecanumDrive_Cartesian(0, 0, 0, forceToBetotwoPi);
@@ -171,7 +201,7 @@ public class Robot extends IterativeRobot {
         // after the robot is powered on.  During calibration,
         // the robot should be still
         
-        System.out.println((imu == null));
+        //System.out.println((imu == null));
         
         boolean is_calibrating = imu.isCalibrating();
         if ( first_iteration && !is_calibrating ) {
@@ -183,6 +213,9 @@ public class Robot extends IterativeRobot {
         // Update the dashboard with status and orientation
         // data from the nav6 IMU
         
+        SmartDashboard.putNumber("X_Axis", stick.getRawAxis(0));
+        SmartDashboard.putNumber("Y_Axis", stick.getRawAxis(1));
+        
         SmartDashboard.putBoolean(  "IMU_Connected",        imu.isConnected());
         SmartDashboard.putBoolean(  "IMU_IsCalibrating",    imu.isCalibrating());
         SmartDashboard.putNumber(   "IMU_Yaw",              imu.getYaw());
@@ -192,6 +225,10 @@ public class Robot extends IterativeRobot {
         SmartDashboard.putNumber(   "IMU_Update_Count",     imu.getUpdateCount());
         SmartDashboard.putNumber(   "IMU_Byte_Count",       imu.getByteCount());
         SmartDashboard.putNumber(	"IMU_PIDGET", 			imu.pidGet());
+        
+        SmartDashboard.putNumber("Left enc TP", frontLeftMotor.getEncPosition());
+		SmartDashboard.putNumber("Right enc TP", frontRightMotor.getEncPosition());
+		
         //        imu.pidGet()
 
         // If you are using the IMUAdvanced class, you can also access the following
@@ -266,6 +303,10 @@ public class Robot extends IterativeRobot {
         backLeftMotor.set(wheelSpeeds[2] * -1.0);
         backRightMotor.set(wheelSpeeds[3] * 1.0);
 
-           }
+    }
+    
+    public void driveForwordX (double frontRight, double backRight, double forntLeft, double backLeft, int x){
+    	
+    }
 
 }
