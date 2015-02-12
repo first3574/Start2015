@@ -1,3 +1,6 @@
 build/
 dist/
 bin/
+dist/FRCUserProgram.jar
+build/org/usfirst/frc/team3574/robot/Robot.class
+bin/org/usfirst/frc/team3574/robot/Robot.class
