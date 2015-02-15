@@ -3,6 +3,7 @@ package org.usfirst.frc.team3574.robot;
 import com.kauailabs.nav6.frc.IMUAdvanced;
 
 import edu.wpi.first.wpilibj.CANTalon;
+import edu.wpi.first.wpilibj.CANTalon.ControlMode;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
@@ -64,6 +65,16 @@ public class Robot extends IterativeRobot {
 		motor7 = new CANTalon(7);
 		amMoving = false;
 		lastBand = -1;
+		
+		backLeftMotor.changeControlMode(ControlMode.PercentVbus);
+		backRightMotor.changeControlMode(ControlMode.PercentVbus);
+		frontLeftMotor.changeControlMode(ControlMode.PercentVbus);
+		frontRightMotor.changeControlMode(ControlMode.PercentVbus);
+		
+		backLeftMotor.enableBrakeMode(true);
+		frontLeftMotor.enableBrakeMode(true);
+		backRightMotor.enableBrakeMode(true);
+		frontRightMotor.enableBrakeMode(true);
 
 		try {
 			serial_port = new SerialPort(57600, SerialPort.Port.kUSB);
@@ -76,7 +87,7 @@ public class Robot extends IterativeRobot {
 			// You can also use the IMUAdvanced class for advanced
 			// features.
 
-			byte update_rate_hz = 50;
+			byte update_rate_hz = 100;
 			// imu = new IMU(serial_port,update_rate_hz);
 			imu = new IMUAdvanced(serial_port, update_rate_hz);
 		} catch (Exception ex) {
@@ -190,28 +201,29 @@ public class Robot extends IterativeRobot {
 	 * This function is called periodically during operator control
 	 */
 	public void teleopPeriodic() {
-		rookieFactor = .75;
-		deadZone = 0.24;
+		rookieFactor = 1.0;
+		deadZone = 0.14;
 		// To make it field oriented the x needs to be inverted
-		scaledX = joystickScale(-stick.getRawAxis(0)) * rookieFactor;
-		scaledY = joystickScale(stick.getRawAxis(1)) * rookieFactor * -1.0;
-		scaledZ = joystickScale(stick.getRawAxis(4)) * rookieFactor;
-
+//		scaledX = joystickScale(-stick.getRawAxis(0)) * rookieFactor;
+//		scaledY = joystickScale(stick.getRawAxis(1)) * rookieFactor * -1.0;
+//		scaledZ = joystickScale(stick.getRawAxis(4)) * rookieFactor;
+		scaledX = Math.abs(-stick.getRawAxis(0)) < deadZone ? 0.0 : -stick.getRawAxis(0) * rookieFactor;
+		scaledY = Math.abs(-stick.getRawAxis(1)) < deadZone ? 0.0 : -stick.getRawAxis(1) * rookieFactor; 
+		scaledZ = Math.abs(stick.getRawAxis(3) - stick.getRawAxis(2)) < deadZone ? 0.0 : stick.getRawAxis(3) - stick.getRawAxis(2) * rookieFactor;
+		scaledX = joystickScale(scaledX);
+		scaledY = joystickScale(scaledY);				
+		scaledZ = joystickScale(scaledZ);
+		
 		if (imu.getYaw() < 0.0) {
 			forceToBetotwoPi = 360 + imu.getYaw();
 		} else {
 			forceToBetotwoPi = imu.getYaw();
 		}
 
-		if (stick.getRawAxis(0) > deadZone || stick.getRawAxis(1) > deadZone
-				|| stick.getRawAxis(4) > deadZone
-				|| stick.getRawAxis(0) < -deadZone
-				|| stick.getRawAxis(1) < -deadZone
-				|| stick.getRawAxis(4) < -deadZone) {
-			mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, forceToBetotwoPi);
-		} else {
-			mecanumDrive_Cartesian(0, 0, 0, forceToBetotwoPi);
-		}
+
+
+		mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, forceToBetotwoPi);
+		// mecanumDrive_Cartesian(scaledX, scaledY, scaledZ, 0.0);
 
 		int bumperPressed = 0;  //0 is no bumper, -1 is left, 1 is right		
 		if (stick.getRawButton(5)) {
@@ -277,6 +289,12 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putNumber("IMU_Byte_Count", imu.getByteCount());
 		SmartDashboard.putNumber("IMU_PIDGET", imu.pidGet());
 
+		SmartDashboard.putNumber("frontLeftMotor voltage", frontLeftMotor.getEncVelocity());
+		SmartDashboard.putNumber("frontRighttMotor voltage", frontRightMotor.getEncVelocity());
+		SmartDashboard.putNumber("backLeftMotor voltage", backLeftMotor.getEncVelocity());
+		SmartDashboard.putNumber("backRighttMotor voltage", backRightMotor.getEncVelocity());
+
+		
 		SmartDashboard
 				.putNumber("Left enc TP", frontLeftMotor.getEncPosition());
 		SmartDashboard.putNumber("Right enc TP",
@@ -303,7 +321,7 @@ public class Robot extends IterativeRobot {
 		SmartDashboard.putBoolean("motor5 limitswitch back",
 				elevatorMotor.isRevLimitSwitchClosed());
 
-		Timer.delay(0.2);
+		Timer.delay(0.007);
 	}
 
 	public int getElevatorPos() {
