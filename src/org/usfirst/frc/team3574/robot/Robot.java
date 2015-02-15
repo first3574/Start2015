@@ -46,6 +46,13 @@ public class Robot extends IterativeRobot {
 	// IMU imu; // Alternatively, use IMUAdvanced for advanced features
 	IMUAdvanced imu;
 	boolean first_iteration;
+	
+	public void talonInit(CANTalon theThing) {
+		theThing.changeControlMode(CANTalon.ControlMode.Speed);
+		theThing.setFeedbackDevice(CANTalon.FeedbackDevice.QuadEncoder);
+		theThing.enableBrakeMode(true);
+		theThing.setPID(1.0, 0.0, 0.0, 3.95, 0, 0.0, 0);
+	}
 
 	/**
 	 * This function is run when the robot is first started up and should be
@@ -66,16 +73,11 @@ public class Robot extends IterativeRobot {
 		amMoving = false;
 		lastBand = -1;
 		
-		backLeftMotor.changeControlMode(ControlMode.PercentVbus);
-		backRightMotor.changeControlMode(ControlMode.PercentVbus);
-		frontLeftMotor.changeControlMode(ControlMode.PercentVbus);
-		frontRightMotor.changeControlMode(ControlMode.PercentVbus);
+		talonInit(backLeftMotor);
+		talonInit(frontLeftMotor);
+		talonInit(backRightMotor);
+		talonInit(frontRightMotor);
 		
-		backLeftMotor.enableBrakeMode(true);
-		frontLeftMotor.enableBrakeMode(true);
-		backRightMotor.enableBrakeMode(true);
-		frontRightMotor.enableBrakeMode(true);
-
 		try {
 			serial_port = new SerialPort(57600, SerialPort.Port.kUSB);
 
@@ -379,10 +381,10 @@ public class Robot extends IterativeRobot {
 
 		normalize(wheelSpeeds);
 
-		frontLeftMotor.set(wheelSpeeds[0] * -1.0);
-		frontRightMotor.set(wheelSpeeds[1] * 1.0);
-		backLeftMotor.set(wheelSpeeds[2] * -1.0);
-		backRightMotor.set(wheelSpeeds[3] * 1.0);
+		frontLeftMotor.set(wheelSpeeds[0] * -275.0);
+		frontRightMotor.set(wheelSpeeds[1] * 275.0);
+		backLeftMotor.set(wheelSpeeds[2] * -275.0);
+		backRightMotor.set(wheelSpeeds[3] * 275.0);
 
 	}
 
